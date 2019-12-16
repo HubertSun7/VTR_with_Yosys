@@ -162,3 +162,7 @@ tags
 .vscode
 .history
 
+#
+# vpr test file
+#
+vpr_test

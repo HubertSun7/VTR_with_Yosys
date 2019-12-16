@@ -1,0 +1,16 @@
+read_lut ABCLUT;
+time;
+print_stats;
+print_latch;
+time;
+print_lut;
+time;
+strash;
+ifraig -v;
+scorr -v;
+dc2 -v;
+dch -f;
+if;
+mfs2 -v;
+print_status;
+time;

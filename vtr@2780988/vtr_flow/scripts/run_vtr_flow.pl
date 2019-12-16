@@ -126,6 +126,15 @@ my $relax_W_factor = 1.3;
 my $crit_path_router_iterations = undef;
 my $show_failures = 0;
 
+# yosys related
+my $yosys_script             = "";
+my $yosys_script_default     = "yosys.ys";
+my $yosys_models             = "";
+my $yosys_models_default     = "yosys_models.v";
+my $yosys_abc_script         = "";
+my $yosys_abc_script_default = "abc_vtr.rc";
+my $abc_lut_file             = "abc_lut6.lut";
+
 
 ##########
 # ABC flow modifiers
@@ -240,6 +249,18 @@ while ( scalar(@ARGV) != 0 ) { #While non-empty
 	elsif ( $token eq "-crit_path_router_iterations" ){
 		$crit_path_router_iterations = shift(@ARGV);
 	}
+	elsif ( $token eq "-yosys" ) {
+		$yosys_script = $yosys_script_default;
+	}
+	elsif ( $token eq "-yosys_script" ) {
+		$yosys_script = shift(@ARGV);
+	}
+	elsif ( $token eq "-yosys_models" ) {
+		$yosys_models = shift(@ARGV);
+	}
+	elsif ( $token eq "-yosys_abc_script" ) {
+		$yosys_abc_script = shift(@ARGV);
+	}
     # else forward the argument
 	else {
         push @forwarded_vpr_args, $token;
@@ -303,38 +324,94 @@ if ( $stage_idx_vpr >= $starting_stage and $stage_idx_vpr <= $ending_stage ) {
 
 #odin is now necessary for simulation
 my $odin2_path; my $odin_config_file_name; my $odin_config_file_path;
+# yosys related
+my $yosys_path;
+my $yosys_config_file_name;
+my $yosys_config_file_path;
+my $yosys_abc_script_file_path;
+my $models_file_path_default;
+my $models_file_path;
+my $yosys_abc_script_path;
+
 if (    $stage_idx_abc >= $starting_stage
 	and $stage_idx_odin <= $ending_stage )
 {
-	$odin2_path = exe_for_platform("$vtr_flow_path/../ODIN_II/odin_II");
-	( -e $odin2_path )
-	  or die "Cannot find ODIN_II executable ($odin2_path)";
+	if ($yosys_script eq "") {
+		$odin2_path = exe_for_platform("$vtr_flow_path/../ODIN_II/odin_II");
+		( -e $odin2_path )
+		  or die "Cannot find ODIN_II executable ($odin2_path)";
 
-	$odin_config_file_name = "basic_odin_config_split.xml";
+		$odin_config_file_name = "basic_odin_config_split.xml";
 
-	$odin_config_file_path = "$vtr_flow_path/misc/$odin_config_file_name";
-	( -e $odin_config_file_path )
-	  or die "Cannot find ODIN config template ($odin_config_file_path)";
+		$odin_config_file_path = "$vtr_flow_path/misc/$odin_config_file_name";
+		( -e $odin_config_file_path )
+		  or die "Cannot find ODIN config template ($odin_config_file_path)";
 
-	$odin_config_file_name = "odin_config.xml";
-	my $odin_config_file_path_new = "$temp_dir" . "odin_config.xml";
-	copy( $odin_config_file_path, $odin_config_file_path_new );
-	$odin_config_file_path = $odin_config_file_path_new;
+		$odin_config_file_name = "odin_config.xml";
+		my $odin_config_file_path_new = "$temp_dir" . "odin_config.xml";
+		copy( $odin_config_file_path, $odin_config_file_path_new );
+		$odin_config_file_path = $odin_config_file_path_new;
+	}
+	else{
+		$yosys_path = "$vtr_flow_path/../../yosys\@9ab1fee/yosys";
+		( -e $yosys_path )
+			or die "Cannot find Yosys executable ($yosys_path)";
+
+		$yosys_config_file_name = $yosys_script;
+		$yosys_config_file_path = "$vtr_flow_path/misc/$yosys_config_file_name";
+		( -e $yosys_config_file_path )
+			or die "Cannot find Yosys script ($yosys_config_file_path)";
+
+		my $yosys_config_file_path_new = "$temp_dir" . "$yosys_config_file_name";
+		copy( $yosys_config_file_path, $yosys_config_file_path_new );
+		$yosys_config_file_path = $yosys_config_file_path_new;
+
+		my $tech_file_name;
+		$tech_file_name = "single_port_ram.v";
+		copy( "$vtr_flow_path/misc/$tech_file_name", "$temp_dir"."$tech_file_name" );
+		$tech_file_name = "dual_port_ram.v";
+		copy( "$vtr_flow_path/misc/$tech_file_name", "$temp_dir"."$tech_file_name" );
+		$tech_file_name = "adder.v";
+		copy( "$vtr_flow_path/misc/$tech_file_name", "$temp_dir"."$tech_file_name" );
+		$tech_file_name = "multiply.v";
+		copy( "$vtr_flow_path/misc/$tech_file_name", "$temp_dir"."$tech_file_name" );
+
+		my $models_file_name = $yosys_models_default;
+		$models_file_path_default = "$temp_dir"."$models_file_name";
+		copy( "$vtr_flow_path/misc/$models_file_name", "$models_file_path_default" );
+
+		$models_file_name = $yosys_models;
+		if ($models_file_name ne "") {
+			$models_file_path = "$temp_dir"."$models_file_name";
+			copy( "$vtr_flow_path/misc/$models_file_name", "$models_file_path" );
+		}
+
+		if ($yosys_abc_script eq "") { 
+			$yosys_abc_script = $yosys_abc_script_default;
+		}
+		$yosys_abc_script_path = "$temp_dir"."$yosys_abc_script";
+		copy( "$vtr_flow_path/misc/$yosys_abc_script", $yosys_abc_script_path );
+	}
 }
 
 my $abc_path;
 my $abc_rc_path;
+my $abc_lut_path;
+
 if ( $stage_idx_abc >= $starting_stage or $stage_idx_vpr <= $ending_stage ) {
 	#Need ABC for either synthesis or post-VPR verification
     my $abc_dir_path = "$vtr_flow_path/../abc";
     $abc_path = "$abc_dir_path/abc";
     $abc_rc_path = "$abc_dir_path/abc.rc";
+    $abc_lut_path = "$vtr_flow_path/misc/$abc_lut_file";
 
 	( -e $abc_path or -e "${abc_path}.exe" )
 	  or die "Cannot find ABC executable ($abc_path)";
 	( -e $abc_rc_path ) or die "Cannot find ABC RC file ($abc_rc_path)";
+	( -e $abc_lut_path ) or die "Cannot find ABC LUT file ($abc_lut_path)";
 
 	copy( $abc_rc_path, $temp_dir );
+	copy( $abc_lut_path, $temp_dir );
 }
 
 my $restore_multiclock_info_script;
@@ -442,38 +519,80 @@ my $q         = "not_run";
 
 if ( $starting_stage <= $stage_idx_odin and !$error_code ) {
 
-	#system "sed 's/XXX/$benchmark_name.v/g' < $odin2_base_config > temp1.xml";
-	#system "sed 's/YYY/$arch_name/g' < temp1.xml > temp2.xml";
-	#system "sed 's/ZZZ/$odin_output_file_path/g' < temp2.xml > temp3.xml";
-	#system "sed 's/PPP/$mem_size/g' < temp3.xml > circuit_config.xml";
+	unlink "$odin_output_file_path";
+	if ($yosys_script eq ""){
 
-	file_find_and_replace( $odin_config_file_path, "XXX", $circuit_file_name );
-	file_find_and_replace( $odin_config_file_path, "YYY", $architecture_file_name );
-	file_find_and_replace( $odin_config_file_path, "ZZZ", $odin_output_file_name );
-	file_find_and_replace( $odin_config_file_path, "PPP", $mem_size );
-	file_find_and_replace( $odin_config_file_path, "MMM", $min_hard_mult_size );
-	file_find_and_replace( $odin_config_file_path, "AAA", $min_hard_adder_size );
+		#system "sed 's/XXX/$benchmark_name.v/g' < $odin2_base_config > temp1.xml";
+		#system "sed 's/YYY/$arch_name/g' < temp1.xml > temp2.xml";
+		#system "sed 's/ZZZ/$odin_output_file_path/g' < temp2.xml > temp3.xml";
+		#system "sed 's/PPP/$mem_size/g' < temp3.xml > circuit_config.xml";
 
-	if ( !$error_code ) {
-		if ( $use_odin_xml_config ) {
-			$q = &system_with_timeout( "$odin2_path", "odin.out", $timeout, $temp_dir,
-				"-c", $odin_config_file_name,
-				"--adder_type", $odin_adder_config_path,
-                $odin_adder_cin_global,
-				"-U0");
-		} else {
-			$q = &system_with_timeout( "$odin2_path", "odin.out", $timeout, $temp_dir,
-				"--adder_type", $odin_adder_config_path,
-				"-a", $temp_dir . $architecture_file_name,
-				"-V", $temp_dir . $circuit_file_name,
-				"-o", $temp_dir . $odin_output_file_name,
-                $odin_adder_cin_global,
-				"-U0");
+		file_find_and_replace( $odin_config_file_path, "XXX", $circuit_file_name );
+		file_find_and_replace( $odin_config_file_path, "YYY", $architecture_file_name );
+		file_find_and_replace( $odin_config_file_path, "ZZZ", $odin_output_file_name );
+		file_find_and_replace( $odin_config_file_path, "PPP", $mem_size );
+		file_find_and_replace( $odin_config_file_path, "MMM", $min_hard_mult_size );
+		file_find_and_replace( $odin_config_file_path, "AAA", $min_hard_adder_size );
+
+		if ( !$error_code ) {
+			if ( $use_odin_xml_config ) {
+				$q = &system_with_timeout( "$odin2_path", "odin.out", $timeout, $temp_dir,
+					"-c", $odin_config_file_name,
+					"--adder_type", $odin_adder_config_path,
+        	        $odin_adder_cin_global,
+					"-U0");
+			} else {
+				$q = &system_with_timeout( "$odin2_path", "odin.out", $timeout, $temp_dir,
+					"--adder_type", $odin_adder_config_path,
+					"-a", $temp_dir . $architecture_file_name,
+					"-V", $temp_dir . $circuit_file_name,
+					"-o", $temp_dir . $odin_output_file_name,
+        	        $odin_adder_cin_global,
+					"-U0");
+			}
+
+			if ( ! -e $odin_output_file_path or $q ne "success") {
+				$error_status = "failed: odin";
+				$error_code = 1;
+			}
+		}
+	}
+	else{
+		file_find_and_replace( $yosys_config_file_path, "XXX", $circuit_file_name );
+		file_find_and_replace( $yosys_config_file_path, "ZZZ",
+			$odin_output_file_name );
+		file_find_and_replace( $yosys_config_file_path, "SSS",
+			$benchmark_name );
+			
+		#file_find_and_replace( $yosys_config_file_path, "LUTSIZE", $lut_size );
+		file_find_and_replace( $yosys_config_file_path, "ABCEXE", $abc_path );
+		file_find_and_replace( $yosys_config_file_path, "ABCSCRIPT", $yosys_abc_script );
+
+		file_find_and_replace( $yosys_abc_script_path, "ABCLUT", $abc_lut_file );
+
+		file_find_and_replace( $models_file_path_default, "PPP", $mem_size );
+		file_find_and_replace( $models_file_path_default, "AAA", $min_hard_adder_size );
+		if ($models_file_path ne "") {
+			file_find_and_replace( $models_file_path, "PPP", $mem_size );
+			file_find_and_replace( $models_file_path, "AAA", $min_hard_adder_size );
 		}
 
-		if ( ! -e $odin_output_file_path or $q ne "success") {
-			$error_status = "failed: odin";
-			$error_code = 1;
+		if ( !$error_code ) {
+			$q =
+			&system_with_timeout( "$yosys_path", "yosys.out", $timeout, $temp_dir,
+				"-v 2", $yosys_config_file_name );
+
+			if ( -e $odin_output_file_path ) {
+				if ( !$keep_intermediate_files ) {
+					system "rm -f ${temp_dir}*.dot";
+					system "rm -f ${temp_dir}*.v";
+					system "rm -f $odin_config_file_path";
+				}
+			}
+			else {
+				print "failed: yosys";
+				$error_code = 1;
+			}
 		}
 	}
 }
@@ -488,7 +607,7 @@ if (    $starting_stage <= $stage_idx_abc
 {
 	#	this is not made mandatory since some hardblocks are not recognized by odin
 	#	we let odin figure out the best number of vector to simulate for best coverage
-	if($odin_run_simulation)  {
+	if($odin_run_simulation and $yosys_script eq "")  {
 		system "mkdir simulation_init";
 
 		$q = &system_with_timeout( "$odin2_path", "sim_produce_vector.out", $timeout, $temp_dir,
@@ -516,259 +635,280 @@ if (    $starting_stage <= $stage_idx_abc
 	and $ending_stage >= $stage_idx_abc
 	and !$error_code )
 {
-	#added so that valgrind will not run on abc and perl because of existing memory errors
-	my $skip_valgrind = $valgrind;
-	$valgrind = 0;
+
+	if ($yosys_script eq ""){
+		#added so that valgrind will not run on abc and perl because of existing memory errors
+		my $skip_valgrind = $valgrind;
+		$valgrind = 0;
 
 
-    # Get lut size if undefined
-    if (!defined $lut_size) {
-        $lut_size = xml_find_LUT_Kvalue($xml_tree);
-    }
-    if ( $lut_size < 1 ) {
-        $error_status = "failed: cannot determine arch LUT k-value";
-        $error_code = 1;
-    }
+		# Get lut size if undefined
+		if (!defined $lut_size) {
+			$lut_size = xml_find_LUT_Kvalue($xml_tree);
+		}
+		if ( $lut_size < 1 ) {
+			$error_status = "failed: cannot determine arch LUT k-value";
+			$error_code = 1;
+		}
 
-	my @clock_list;
+		my @clock_list;
 
-	if ( $flow_type )
-	{
-		##########
-		#	Populate the clock list
+		if ( $flow_type )
+		{
+			##########
+			#	Populate the clock list
+			#
+			#	get all the clock domains and parse the initial values for each
+			#	we will iterate though the file and use each clock iteratively
+			my $clk_list_filename = "report_clk.out";
+			$q = &system_with_timeout($blackbox_latches_script, "report_clocks.abc.out", $timeout, $temp_dir,
+					"--input", $odin_output_file_name, "--output_list", $clk_list_filename);
+
+			if ($q ne "success") {
+				$error_status = "failed: to find available clocks in blif file";
+				$error_code = 1;
+			}
+
+			# parse the clock file and populate the clock list using it
+			my $clock_list_file;
+			open ($clock_list_file, "<", $temp_dir.$clk_list_filename) or die "Unable to open \"".$clk_list_filename."\": $! \n";
+			#read line and strip whitespace of line
+			my $line = "";
+			while(($line = <$clock_list_file>))
+			{
+				$line =~ s/^\s+|\s+$//g;
+				if($line =~ /^latch/)
+				{
+					#get the initial value out (last char)
+					push(@clock_list , $line);
+				}
+			}
+		}
+
+		# for combinationnal circuit there will be no clock, this works around this
+		# also unless we request itterative optimization, only run ABC once
+		my $number_of_itteration = scalar @clock_list;
+		if( not $number_of_itteration
+		or $flow_type != 2 )
+		{
+			$number_of_itteration = 1;
+		}
+
+		################
+		# 	ABC iterative optimization
 		#
-		#	get all the clock domains and parse the initial values for each
-		#	we will iterate though the file and use each clock iteratively
-		my $clk_list_filename = "report_clk.out";
-		$q = &system_with_timeout($blackbox_latches_script, "report_clocks.abc.out", $timeout, $temp_dir,
-				"--input", $odin_output_file_name, "--output_list", $clk_list_filename);
+		my $input_blif = $odin_output_file_name;
+
+		ABC_OPTIMIZATION: foreach my $domain_itter ( 0 .. ($number_of_itteration-1) )
+		{
+			my $pre_abc_blif = $domain_itter."_".$odin_output_file_name;
+			my $post_abc_raw_blif = $domain_itter."_".$abc_raw_output_file_name;
+			my $post_abc_blif = $domain_itter."_".$abc_output_file_name;
+
+			if( $flow_type == 3 )
+			{
+				# black box latches
+				$q = &system_with_timeout($blackbox_latches_script, $domain_itter."_blackboxing_latch.out", $timeout, $temp_dir,
+						"--input", $input_blif, "--output", $pre_abc_blif);	
+
+				if ($q ne "success") {
+					$error_status = "failed: to black box the clocks for file_in: ".$input_blif." file_out: ".$pre_abc_blif;
+					$error_code = 1;
+					last ABC_OPTIMIZATION;
+				}	
+			}
+			elsif ( exists  $clock_list[$domain_itter] )
+			{
+				# black box latches
+				$q = &system_with_timeout($blackbox_latches_script, $domain_itter."_blackboxing_latch.out", $timeout, $temp_dir,
+						"--clk_list", $clock_list[$domain_itter], "--input", $input_blif, "--output", $pre_abc_blif);
+
+				if ($q ne "success") {
+					$error_status = "failed: to black box the clock <".$clock_list[$domain_itter]."> for file_in: ".$input_blif." file_out: ".$pre_abc_blif;
+					$error_code = 1;
+					last ABC_OPTIMIZATION;
+				}
+			}
+			else
+			{
+				$pre_abc_blif = $input_blif;
+			}
+
+			###########
+			# ABC Optimizer
+
+			#For ABC’s documentation see: https://people.eecs.berkeley.edu/~alanmi/abc/abc.htm
+			#
+			#Some key points on the script used:
+			#
+			#  strash : The strash command (which build's ABC's internal AIG) is needed before clean-up
+			#           related commands (e.g. ifraig) otherwise they will fail with “Only works for
+			#           structurally hashed networks”.
+			#
+			#  if –K #: This command techmaps the logic to LUTS. It should appear as the (near) final step
+			#           before writing the optimized netlist. In recent versions, ABC does not remember
+			#           that LUT size you want to techmap to. As a result, specifying if -K # early in
+			#           the script causes ABC techmap to 2-LUTs, greatly increasing the amount of logic required (CLB’s, blocks, nets, etc.).
+			#
+			# The current script is based off the one used by YOSYS and on discussions with Alan Mishchenko (ABC author).
+			# On 2018/04/28 Alan suggested the following:
+			#   (1) run synthesis commands such as "dc2" after "ifraig" and "scorr" (this way more equivalences are typically found - improves quality)
+			#   (2) run "ifraig" before "scorr" (this way comb equivalences are removed before seq equivalences are computed - improves runtime)
+			#   (3) run "dch -f" immediately before mapping "if" (this alone greatly improves both area and delay of mapping)
+			#   (4) no need to run "scleanup" if "scorr" is used ("scorr" internally performs "scleanup" - improves runtime)
+			#   (5) no need to run"dc2" if "dch -f" is used, alternatively run "dc2; dch -f" (this will take more runtime but may not improve quality)
+			#   (6) the only place to run "strash" is after technology mapping (if the script is run more than once - can improve quality)
+			my $abc_commands="
+			echo '';
+			echo 'Load Netlist';
+			echo '============';
+			read ${pre_abc_blif};
+			time;
+
+			echo '';
+			echo 'Circuit Info';
+			echo '==========';
+			print_stats;
+			print_latch;
+			time;
+
+			echo '';
+			echo 'LUT Costs';
+			echo '=========';
+			print_lut;
+			time;
+
+			echo '';
+			echo 'Logic Opt + Techmap';
+			echo '===================';
+			strash;
+			ifraig -v;
+			scorr -v;
+			dc2 -v;
+			dch -f;
+			if -K ${lut_size} -v;
+			mfs2 -v;
+			print_stats;
+			time;
+
+			echo '';
+			echo 'Output Netlist';
+			echo '==============';
+			write_hie ${pre_abc_blif} ${post_abc_raw_blif};
+			time;
+			";
+
+			if ($use_old_abc_script) {
+				#Legacy ABC script adapted for new ABC by moving scleanup before if
+				$abc_commands="
+				read $pre_abc_blif; 
+				time; 
+				resyn; 
+				resyn2; 
+				time; scleanup; time; scleanup; time; scleanup; time; scleanup; time; scleanup; time; scleanup; time; scleanup; time; scleanup; time; scleanup; time; 
+				if -K $lut_size; 
+				write_hie ${pre_abc_blif} ${post_abc_raw_blif}; 
+				print_stats;
+				";
+			}
+
+			$abc_commands =~ s/\R/ /g; #Convert new-lines to spaces
+
+			if ($abc_quote_addition) {$abc_commands = "'" . $abc_commands . "'";}
+
+			$q = &system_with_timeout( $abc_path, "abc".$domain_itter.".out", $timeout, $temp_dir, "-c",
+				$abc_commands);
+
+			if ( $q ne "success") {
+				$error_status = "failed: abc";
+				$error_code = 1;
+				last ABC_OPTIMIZATION;
+			}
+			elsif ( not -e "${temp_dir}/$post_abc_raw_blif" ) {
+				$error_status = "failed: abc did not produce the expected output: ${temp_dir}/${post_abc_raw_blif}";
+				$error_code = 1;
+				last ABC_OPTIMIZATION;
+			}
+
+			if ( $flow_type != 3 and exists  $clock_list[$domain_itter] )
+			{
+				# restore latches with the clock
+				$q = &system_with_timeout($blackbox_latches_script, "restore_latch".$domain_itter.".out", $timeout, $temp_dir,
+						"--restore", $clock_list[$domain_itter], "--input", $post_abc_raw_blif, "--output", $post_abc_blif);
+
+				if ($q ne "success") {
+					$error_status = "failed: to restore latches to their clocks <".$clock_list[$domain_itter]."> for file_in: ".$input_blif." file_out: ".$pre_abc_blif;
+					$error_code = 1;
+					last ABC_OPTIMIZATION;
+				}
+			}
+			else
+			{
+				# Restore Multi-Clock Latch Information from ODIN II that was striped out by ABC
+				$q = &system_with_timeout($restore_multiclock_info_script, "restore_latch".$domain_itter.".out", $timeout, $temp_dir,
+						$pre_abc_blif, $post_abc_raw_blif, $post_abc_blif);
+
+				if ($q ne "success") {
+					$error_status = "failed: to restore multi-clock latch info";
+					$error_code = 1;
+					last ABC_OPTIMIZATION;
+				}
+			}
+
+			$input_blif = $post_abc_blif;
+
+			if ( $flow_type != 2 )
+			{
+				last ABC_OPTIMIZATION;
+			}
+		}
+
+		################
+		#	POST-ABC
+
+		#return all clocks to vanilla clocks
+		$q = &system_with_timeout($blackbox_latches_script, "vanilla_restore_clocks.out", $timeout, $temp_dir,
+				"--input", $input_blif, "--output", $abc_output_file_name, "--vanilla");
 
 		if ($q ne "success") {
-			$error_status = "failed: to find available clocks in blif file";
+			$error_status = "failed: to return to vanilla.\n";
 			$error_code = 1;
 		}
 
-		# parse the clock file and populate the clock list using it
-		my $clock_list_file;
-		open ($clock_list_file, "<", $temp_dir.$clk_list_filename) or die "Unable to open \"".$clk_list_filename."\": $! \n";
-		#read line and strip whitespace of line
-		my $line = "";
-		while(($line = <$clock_list_file>))
-		{
-			$line =~ s/^\s+|\s+$//g;
-			if($line =~ /^latch/)
-			{
-				#get the initial value out (last char)
-				push(@clock_list , $line);
+
+		################
+		#	Cleanup
+		if ( !$error_code
+		and !$keep_intermediate_files ) {
+			if (! $do_power) {
+				system "rm -f $odin_output_file_path";
 			}
+			system "rm -f ${temp_dir}*.dot";
+			system "rm -f ${temp_dir}*.v";
+			system "rm -f ${temp_dir}*.rc";
 		}
+
+		#restore the current valgrind flag
+		$valgrind = $skip_valgrind;
 	}
+	else{
+		unlink "$abc_output_file_path";
+	    $q = &system_with_timeout( $abc_path, "abc.out", $timeout, $temp_dir, "-c",
+	    	"read $odin_output_file_name; print_stats; write_hie $odin_output_file_name $abc_output_file_name"
+	    );
 
-	# for combinationnal circuit there will be no clock, this works around this
-	# also unless we request itterative optimization, only run ABC once
-	my $number_of_itteration = scalar @clock_list;
-	if( not $number_of_itteration
-	or $flow_type != 2 )
-	{
-		$number_of_itteration = 1;
-	}
-
-	################
-	# 	ABC iterative optimization
-	#
-	my $input_blif = $odin_output_file_name;
-
-	ABC_OPTIMIZATION: foreach my $domain_itter ( 0 .. ($number_of_itteration-1) )
-	{
-		my $pre_abc_blif = $domain_itter."_".$odin_output_file_name;
-		my $post_abc_raw_blif = $domain_itter."_".$abc_raw_output_file_name;
-		my $post_abc_blif = $domain_itter."_".$abc_output_file_name;
-
-		if( $flow_type == 3 )
-		{
-			# black box latches
-			$q = &system_with_timeout($blackbox_latches_script, $domain_itter."_blackboxing_latch.out", $timeout, $temp_dir,
-					"--input", $input_blif, "--output", $pre_abc_blif);	
-
-			if ($q ne "success") {
-				$error_status = "failed: to black box the clocks for file_in: ".$input_blif." file_out: ".$pre_abc_blif;
-				$error_code = 1;
-				last ABC_OPTIMIZATION;
-			}	
+		if ( -e $abc_output_file_path ) {
+			#system "rm -f abc.out";
+			if ( !$keep_intermediate_files ) {
+				system "rm -f $odin_output_file_path";
+				system "rm -f ${temp_dir}*.rc";
+				}
 		}
-		elsif ( exists  $clock_list[$domain_itter] )
-		{
-			# black box latches
-			$q = &system_with_timeout($blackbox_latches_script, $domain_itter."_blackboxing_latch.out", $timeout, $temp_dir,
-					"--clk_list", $clock_list[$domain_itter], "--input", $input_blif, "--output", $pre_abc_blif);
-
-			if ($q ne "success") {
-				$error_status = "failed: to black box the clock <".$clock_list[$domain_itter]."> for file_in: ".$input_blif." file_out: ".$pre_abc_blif;
-				$error_code = 1;
-				last ABC_OPTIMIZATION;
-			}
-		}
-		else
-		{
-			$pre_abc_blif = $input_blif;
-		}
-
-		###########
-		# ABC Optimizer
-
-		#For ABC’s documentation see: https://people.eecs.berkeley.edu/~alanmi/abc/abc.htm
-		#
-		#Some key points on the script used:
-		#
-		#  strash : The strash command (which build's ABC's internal AIG) is needed before clean-up
-		#           related commands (e.g. ifraig) otherwise they will fail with “Only works for
-		#           structurally hashed networks”.
-		#
-		#  if –K #: This command techmaps the logic to LUTS. It should appear as the (near) final step
-		#           before writing the optimized netlist. In recent versions, ABC does not remember
-		#           that LUT size you want to techmap to. As a result, specifying if -K # early in
-		#           the script causes ABC techmap to 2-LUTs, greatly increasing the amount of logic required (CLB’s, blocks, nets, etc.).
-		#
-		# The current script is based off the one used by YOSYS and on discussions with Alan Mishchenko (ABC author).
-		# On 2018/04/28 Alan suggested the following:
-		#   (1) run synthesis commands such as "dc2" after "ifraig" and "scorr" (this way more equivalences are typically found - improves quality)
-		#   (2) run "ifraig" before "scorr" (this way comb equivalences are removed before seq equivalences are computed - improves runtime)
-		#   (3) run "dch -f" immediately before mapping "if" (this alone greatly improves both area and delay of mapping)
-		#   (4) no need to run "scleanup" if "scorr" is used ("scorr" internally performs "scleanup" - improves runtime)
-		#   (5) no need to run"dc2" if "dch -f" is used, alternatively run "dc2; dch -f" (this will take more runtime but may not improve quality)
-		#   (6) the only place to run "strash" is after technology mapping (if the script is run more than once - can improve quality)
-		my $abc_commands="
-		echo '';
-		echo 'Load Netlist';
-		echo '============';
-		read ${pre_abc_blif};
-		time;
-
-		echo '';
-		echo 'Circuit Info';
-		echo '==========';
-		print_stats;
-		print_latch;
-		time;
-
-		echo '';
-		echo 'LUT Costs';
-		echo '=========';
-		print_lut;
-		time;
-
-		echo '';
-		echo 'Logic Opt + Techmap';
-		echo '===================';
-		strash;
-		ifraig -v;
-		scorr -v;
-		dc2 -v;
-		dch -f;
-		if -K ${lut_size} -v;
-		mfs2 -v;
-		print_stats;
-		time;
-
-		echo '';
-		echo 'Output Netlist';
-		echo '==============';
-		write_hie ${pre_abc_blif} ${post_abc_raw_blif};
-		time;
-		";
-
-		if ($use_old_abc_script) {
-			#Legacy ABC script adapted for new ABC by moving scleanup before if
-			$abc_commands="
-			read $pre_abc_blif; 
-			time; 
-			resyn; 
-			resyn2; 
-			time; scleanup; time; scleanup; time; scleanup; time; scleanup; time; scleanup; time; scleanup; time; scleanup; time; scleanup; time; scleanup; time; 
-			if -K $lut_size; 
-			write_hie ${pre_abc_blif} ${post_abc_raw_blif}; 
-			print_stats;
-			";
-        }
-
-		$abc_commands =~ s/\R/ /g; #Convert new-lines to spaces
-
-		if ($abc_quote_addition) {$abc_commands = "'" . $abc_commands . "'";}
-
-		$q = &system_with_timeout( $abc_path, "abc".$domain_itter.".out", $timeout, $temp_dir, "-c",
-			$abc_commands);
-
-		if ( $q ne "success") {
-			$error_status = "failed: abc";
+		else {
+			print "failed: abc";
 			$error_code = 1;
-			last ABC_OPTIMIZATION;
-		}
-		elsif ( not -e "${temp_dir}/$post_abc_raw_blif" ) {
-			$error_status = "failed: abc did not produce the expected output: ${temp_dir}/${post_abc_raw_blif}";
-			$error_code = 1;
-			last ABC_OPTIMIZATION;
-		}
-
-		if ( $flow_type != 3 and exists  $clock_list[$domain_itter] )
-		{
-			# restore latches with the clock
-			$q = &system_with_timeout($blackbox_latches_script, "restore_latch".$domain_itter.".out", $timeout, $temp_dir,
-					"--restore", $clock_list[$domain_itter], "--input", $post_abc_raw_blif, "--output", $post_abc_blif);
-
-			if ($q ne "success") {
-				$error_status = "failed: to restore latches to their clocks <".$clock_list[$domain_itter]."> for file_in: ".$input_blif." file_out: ".$pre_abc_blif;
-				$error_code = 1;
-				last ABC_OPTIMIZATION;
-			}
-		}
-		else
-		{
-			# Restore Multi-Clock Latch Information from ODIN II that was striped out by ABC
-			$q = &system_with_timeout($restore_multiclock_info_script, "restore_latch".$domain_itter.".out", $timeout, $temp_dir,
-					$pre_abc_blif, $post_abc_raw_blif, $post_abc_blif);
-
-			if ($q ne "success") {
-				$error_status = "failed: to restore multi-clock latch info";
-				$error_code = 1;
-				last ABC_OPTIMIZATION;
-			}
-		}
-
-		$input_blif = $post_abc_blif;
-
-		if ( $flow_type != 2 )
-		{
-			last ABC_OPTIMIZATION;
 		}
 	}
-
-	################
-	#	POST-ABC
-
-	#return all clocks to vanilla clocks
-	$q = &system_with_timeout($blackbox_latches_script, "vanilla_restore_clocks.out", $timeout, $temp_dir,
-			"--input", $input_blif, "--output", $abc_output_file_name, "--vanilla");
-
-	if ($q ne "success") {
-		$error_status = "failed: to return to vanilla.\n";
-		$error_code = 1;
-	}
-
-
-	################
-	#	Cleanup
-	if ( !$error_code
-	and !$keep_intermediate_files ) {
-		if (! $do_power) {
-			system "rm -f $odin_output_file_path";
-		}
-		system "rm -f ${temp_dir}*.dot";
-		system "rm -f ${temp_dir}*.v";
-		system "rm -f ${temp_dir}*.rc";
-	}
-
-	#restore the current valgrind flag
-	$valgrind = $skip_valgrind;
 }
 
 #################################################################################
@@ -779,7 +919,7 @@ if (    $starting_stage <= $stage_idx_abc
 	and $ending_stage >= $stage_idx_abc
 	and !$error_code )
 {
-	if($odin_run_simulation)  {
+	if($odin_run_simulation and $yosys_script eq "")  {
 
 		system "mkdir simulation_test";
 
@@ -1254,10 +1394,12 @@ sub system_with_timeout {
 		chdir $_[3];
 
 
-		open( STDOUT, "> $_[1]" );
-		if (!$valgrind) {
-			open( STDERR, ">&STDOUT" );
-		}
+		# open( STDOUT, "> $_[1]" );
+		# if (!$valgrind) {
+		# 	open( STDERR, ">&STDOUT" );
+		# }
+		open( STDOUT, "| tee $_[1]" );
+		open( STDERR, ">&STDOUT" );
 
 		# Copy the args and cut out first four
 		my @VPRARGS = @_;
