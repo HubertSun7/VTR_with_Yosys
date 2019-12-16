@@ -1,0 +1,164 @@
+# yosys gitignore
+*.o
+*.d
+.*.swp
+*.gch
+*.gcda
+*.gcno
+__pycache__
+yosys@9ab1fee/.cproject
+yosys@9ab1fee/.project
+yosys@9ab1fee/.settings
+yosys@9ab1fee/qtcreator.files
+yosys@9ab1fee/qtcreator.includes
+yosys@9ab1fee/qtcreator.config
+yosys@9ab1fee/qtcreator.creator
+yosys@9ab1fee/qtcreator.creator.user
+yosys@9ab1fee/coverage.info
+yosys@9ab1fee/coverage_html
+yosys@9ab1fee/Makefile.conf
+yosys@9ab1fee/abc
+yosys@9ab1fee/viz.js
+yosys@9ab1fee/yosys
+yosys@9ab1fee/yosys.exe
+yosys@9ab1fee/yosys.js
+yosys@9ab1fee/yosys-abc
+yosys@9ab1fee/yosys-abc.exe
+yosys@9ab1fee/yosys-config
+yosys@9ab1fee/yosys-smtbmc
+yosys@9ab1fee/yosys-smtbmc.exe
+yosys@9ab1fee/yosys-smtbmc-script.py
+yosys@9ab1fee/yosys-filterlib
+yosys@9ab1fee/yosys-filterlib.exe
+yosys@9ab1fee/kernel/*.pyh
+yosys@9ab1fee/kernel/python_wrappers.cc
+yosys@9ab1fee/kernel/version_*.cc
+yosys@9ab1fee/share
+yosys@9ab1fee/yosys-win32-mxebin-*
+yosys@9ab1fee/yosys-win32-vcxsrc-*
+yosys@9ab1fee/yosysjs-*
+yosys@9ab1fee/libyosys.so
+yosys@9ab1fee/tests/unit/bintest/
+yosys@9ab1fee/tests/unit/objtest/
+yosys@9ab1fee/tests/ystests
+
+
+# vtr gitignore
+#
+#Executables and generated files
+#
+*.exe
+vtr@2780988/vpr/vpr
+vtr@2780988/ace2/ace
+vtr@2780988/abc/abc
+vtr@2780988/ODIN_II/odin_II
+
+#Install
+vtr@2780988/bin/
+
+#
+# Cmake build system
+#
+vtr@2780988/CMakeCache.txt
+vtr@2780988/CMakeFiles
+vtr@2780988/build
+
+#
+#VTR Tasks
+#
+vtr@2780988/vtr_flow/tasks/**/run[0-9]*
+vtr@2780988/vtr_flow/tasks/**/run_latest
+vtr@2780988/vtr_flow/tasks/**/latest
+vtr@2780988/vtr_flow/tasks/**/qor_geomean.txt
+vtr@2780988/vtr_flow/tasks/**/task_summary/
+vtr@2780988/quick_test/*
+
+#
+# Titan benchmarks
+#
+#   We ignore the Titan netlists because of thier large size, and the
+#   Titan architectures since they need to be kept in sync with the
+#   netlists.
+#
+vtr@2780988/titan_release*.tar.gz
+vtr@2780988/vtr_flow/arch/titan/*.xml
+vtr@2780988/vtr_flow/benchmarks/titan_blif/*.blif
+vtr@2780988/vtr_flow/benchmarks/titan_other_blif/*.blif
+
+
+#
+# ISPD benchmarks
+#
+#   We ignore the ISPD netlists because of thier large size.
+#
+vtr@2780988/ispd_benchmarks_vtr*.tar.gz
+vtr@2780988/vtr_flow/benchmarks/ispd_blif/*.blif
+
+#
+# Cloud9 Directory
+#
+vtr@2780988/.c9/
+vtr@2780988/.buildconfig
+
+#
+# Log Files
+#
+*.log
+*.log.sh
+vgcore*
+
+#
+# VPR Result files
+#
+*.net
+*.place
+*.route
+*.out
+
+#
+#Odin test outputs
+#
+vtr@2780988/ODIN_II/log
+vtr@2780988/ODIN_II/regression_test/run[0-9]*
+vtr@2780988/ODIN_II/temp/*
+vtr@2780988/ODIN_II/usefull_tools/**/run[0-9]*
+vtr@2780988/ODIN_II/usefull_tools/**/track_completed
+#
+#C/C++
+#
+*.d
+*.o
+*.a
+
+#
+#Python
+#
+*.pyc
+
+#
+#Vim
+#
+[._]*.s[a-w][a-z]
+[._]s[a-w][a-z]
+*.un~
+Session.vim
+.netrwhist
+*~
+
+#
+# LibreOffice
+#
+\.~lock*\#
+
+#
+#Ctags
+#
+.tags*
+tags
+
+#
+# VS Code
+#
+.vscode
+.history
+
