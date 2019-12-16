@@ -153,8 +153,8 @@ Session.vim
 #
 #Ctags
 #
-#.tags*
-#tags
+.tags*
+tags
 
 #
 # VS Code
