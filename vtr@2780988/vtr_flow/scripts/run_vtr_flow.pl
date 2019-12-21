@@ -636,7 +636,7 @@ if (    $starting_stage <= $stage_idx_abc
 	and !$error_code )
 {
 
-	if ($yosys_script eq ""){
+	if ($yosys_script ne ""){
 		#added so that valgrind will not run on abc and perl because of existing memory errors
 		my $skip_valgrind = $valgrind;
 		$valgrind = 0;

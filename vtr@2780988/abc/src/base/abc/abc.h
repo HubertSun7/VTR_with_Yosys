@@ -104,7 +104,7 @@ typedef enum {
     ABC_INIT_ZERO,      // 1:  zero
     ABC_INIT_ONE,       // 2:  one
     ABC_INIT_DC,        // 3:  don't-care
-    ABC_INIT_OTHER      // 4:  unused
+    ABC_INIT_OTHER      // 4:  1
 } Abc_InitType_t;
 
 ////////////////////////////////////////////////////////////////////////
